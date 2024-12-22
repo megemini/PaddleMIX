@@ -26,7 +26,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 export MASTER_PORT=34229
 export TF_CPP_MIN_LOG_LEVEL=3
 
-OUTPUT_DIR='work_dirs/got_ocr_20'
+OUTPUT_DIR='work_dirs/basline_330k_7b_bs32_1e8'
 
 if [ ! -d "$OUTPUT_DIR" ]; then
   mkdir -p "$OUTPUT_DIR"
@@ -36,16 +36,16 @@ TRAINING_MODEL_RESUME="None"
 TRAINER_INSTANCES='127.0.0.1'
 MASTER='127.0.0.1:8080'
 
-# --freeze_vision_tower False \ # True for stage3
+meta_path="paddlemix/examples/qwen2_vl/configs/baseline_6data_330k.json"
 
 TRAINING_PYTHON="python -m paddle.distributed.launch --master ${MASTER} --nnodes 1 --nproc_per_node ${GPUS} --rank 0 --ips ${TRAINER_INSTANCES} --run_mode=collective"
 ${TRAINING_PYTHON} --log_dir ${OUTPUT_DIR}/paddle_distributed_logs \
-  paddlemix/examples/GOT_OCR_2_0/train_GOT.py \
+  paddlemix/examples/qwen2_vl/qwen2vl_finetune.py \
   --do_train \
-  --model_name_or_path "stepfun-ai/GOT-OCR2_0" \
+  --model_name_or_path "Qwen/Qwen2-VL-7B-Instruct" \
   --output_dir ${OUTPUT_DIR} \
   --logging_dir ${OUTPUT_DIR}/logs \
-  --meta_path paddlemix/examples/GOT_OCR_2_0/configs/demo_dataset.json \
+  --meta_path ${meta_path} \
   --overwrite_output_dir True \
   --dataloader_num_workers 8 \
   --bf16 True \
@@ -54,18 +54,19 @@ ${TRAINING_PYTHON} --log_dir ${OUTPUT_DIR}/paddle_distributed_logs \
   --num_train_epochs 1 \
   --per_device_train_batch_size ${PER_DEVICE_BATCH_SIZE} \
   --gradient_accumulation_steps ${GRADIENT_ACC} \
-  --freeze_vision_tower False \
-  --use_im_start_end True   \
+  --freeze_vit True \
   --max_seq_length 8192 \
+  --image_resolution 512 \
   --recompute False \
   --max_grad_norm 1.0 \
   --evaluation_strategy "no" \
   --save_strategy "steps" \
-  --save_steps 200 \
+  --save_steps 1000 \
   --save_total_limit 1 \
-  --learning_rate 2e-5 \
-  --weight_decay 0. \
-  --warmup_ratio 0.001 \
+  --learning_rate 1e-8 \
+  --warmup_ratio 0.1 \
+  --warmup_steps 100 \
+  --weight_decay 0.1 \
   --optim "adamw" \
   --lr_scheduler_type "cosine" \
   --logging_steps 1 \
@@ -75,4 +76,12 @@ ${TRAINING_PYTHON} --log_dir ${OUTPUT_DIR}/paddle_distributed_logs \
   --pipeline_parallel_degree=1 \
   --sep_parallel_degree=1 \
   --sharding="stage1" \
+  --amp_master_grad=1 \
+  --hybrid_parallel_topo_order="sharding_first" \
+  --lora True \
+  --lora_rank=12 \
+  --lora_alpha=256 \
+  --lora_dropout=0.0 \
+  --lora_target_modules="model.layers.*q_proj.*,model.layers.*k_proj.*,model.layers.*v_proj.*,model.layers.*gate_proj.*,model.layers.*up_proj.*,model.layers.*down_proj.*,model.layers.*o_proj.*" \
   2>&1 | tee -a "${OUTPUT_DIR}/training_log.txt"
+
