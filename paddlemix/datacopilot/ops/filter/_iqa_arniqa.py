@@ -28,15 +28,14 @@ _arniqa = ARNIQA()
 
 def _score(model, img_path):
     img = Image.open(img_path)
+    if img.mode not in ["RGB", "BGR"]:
+        img = img.convert("RGB")
+
     input_data = paddle.to_tensor((np.asarray(img) / 255).astype("float32"))
-
-    if input_data.dim() == 2:
-        input_data = input_data.unsqueeze(2)
-
     input_data = paddle.transpose(input_data, [2, 0, 1]).unsqueeze(0)
 
     score = model(input_data)
-    return score.numpy()[0]
+    return float(score.numpy()[0])
 
 
 class ARNIQATagger(Tagger):
