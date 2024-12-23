@@ -29,6 +29,9 @@ _brisque = BRISQUE(url=False)
 
 def _score(model, img_path):
     img = Image.open(img_path)
+    if img.mode not in ["RGB", "BGR"]:
+        img = img.convert("RGB")
+
     img = np.asarray(img)
     score = model.score(img=img)
 
@@ -38,7 +41,7 @@ def _score(model, img_path):
 
     # convert BRISQUE score [0, 100] to [0, 1], and higher is better
     score = (100 - score) / 100
-    return score
+    return float(score)
 
 
 class BRISQUETagger(Tagger):
